@@ -1,0 +1,16 @@
+{
+  "name": "repox-react-app",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "start": "vite",
+    "build": "vite build"
+  },
+  "dependencies": {
+    "react": "^18.3.0",
+    "react-dom": "^18.3.0"
+  },
+  "devDependencies": {
+    "vite": "^5.2.0"
+  }
+}

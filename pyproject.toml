@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "repox"
+version = "0.1.0"
+description = "CLI tool for creating and initializing GitHub repositories from the terminal."
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "MIT" }
+authors = [
+  { name = "repox contributors" }
+]
+dependencies = [
+  "click>=8.0",
+  "questionary>=2.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=7.0",
+]
+
+[project.scripts]
+repo = "repox.cli:main"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["repox*"]
+
+[tool.setuptools.package-data]
+repox = ["templates/**/*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
