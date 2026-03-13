@@ -3,7 +3,7 @@ from tempfile import TemporaryDirectory
 import unittest
 from unittest import mock
 
-from repox.core import RepoxError, apply_template, init_local_repo
+from repox.core import CommandExecutionError, RepoxError, check_prerequisites, init_local_repo, open_remote_repo, push_to_remote, apply_template
 
 
 class CoreTests(unittest.TestCase):
@@ -51,6 +51,45 @@ class CoreTests(unittest.TestCase):
                     ["git", "remote", "add", "origin", "git@github.com:example/project.git"],
                 ],
             )
+
+    def test_check_prerequisites_reports_missing_auth(self) -> None:
+        with mock.patch("repox.core.shutil.which", return_value="/usr/bin/tool"), mock.patch(
+            "repox.core.run_command",
+            side_effect=CommandExecutionError(
+                args=["gh", "auth", "status"],
+                stderr="not logged in",
+                stdout="",
+                returncode=1,
+            ),
+        ):
+            with self.assertRaisesRegex(RepoxError, "gh auth login"):
+                check_prerequisites()
+
+    def test_push_to_remote_wraps_failures(self) -> None:
+        with mock.patch(
+            "repox.core.run_command",
+            side_effect=CommandExecutionError(
+                args=["git", "push", "-u", "origin", "main"],
+                stderr="permission denied",
+                stdout="",
+                returncode=1,
+            ),
+        ):
+            with self.assertRaisesRegex(RepoxError, "Failed to push to GitHub"):
+                push_to_remote(Path.cwd())
+
+    def test_open_remote_repo_wraps_failures(self) -> None:
+        with mock.patch(
+            "repox.core.run_command",
+            side_effect=CommandExecutionError(
+                args=["gh", "repo", "view", "demo", "--web"],
+                stderr="cannot open browser",
+                stdout="",
+                returncode=1,
+            ),
+        ):
+            with self.assertRaisesRegex(RepoxError, "opening it in the browser failed"):
+                open_remote_repo("demo")
 
 
 if __name__ == "__main__":
