@@ -32,6 +32,7 @@ classifiers = [
 dependencies = [
   "click>=8.0",
   "questionary>=2.0",
+  "tomli>=2.0; python_version < '3.11'",
 ]
 
 [project.urls]
@@ -44,6 +45,7 @@ dev = [
   "pytest>=7.0",
   "build>=1.2.0",
   "twine>=5.0.0",
+  "tomli>=2.0; python_version < '3.11'",
 ]
 
 [project.scripts]

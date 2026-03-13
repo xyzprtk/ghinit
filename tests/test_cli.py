@@ -10,6 +10,7 @@ from repokit.cli import main
 class CliTests(unittest.TestCase):
     def test_cli_runs_with_prompted_name_and_template(self) -> None:
         operations = []
+        cwd_name = Path.cwd().name
         config = {
             "defaults": {"visibility": "private", "template": "none", "remote": "origin"},
             "templates": {"custom_dir": ""},
@@ -60,20 +61,21 @@ class CliTests(unittest.TestCase):
             [
                 "check_prerequisites",
                 ("create_remote_repo", "demo-repo", "private"),
-                ("apply_template", "flask", "repox", {"repo_name": "demo-repo", "author": "Alice"}),
+                ("apply_template", "flask", cwd_name, {"repo_name": "demo-repo", "author": "Alice"}),
                 ("fetch_gitignore", "Python"),
                 (
                     "init_local_repo",
-                    "repox",
+                    cwd_name,
                     "git@github.com:user/demo-repo.git",
                     "__pycache__/\n",
                 ),
-                ("push_to_remote", "repox"),
+                ("push_to_remote", cwd_name),
             ],
         )
 
     def test_cli_skips_confirmation_with_yes_and_opens_browser(self) -> None:
         operations = []
+        cwd_name = Path.cwd().name
         config = {
             "defaults": {"visibility": "private", "template": "none", "remote": "origin"},
             "templates": {"custom_dir": ""},
@@ -121,10 +123,10 @@ class CliTests(unittest.TestCase):
             [
                 "check_prerequisites",
                 ("create_remote_repo", "demo", "public"),
-                ("apply_template", "none", "repox", None),
+                ("apply_template", "none", cwd_name, None),
                 ("fetch_gitignore", None),
-                ("init_local_repo", "repox", "git@github.com:user/demo.git", None),
-                ("push_to_remote", "repox"),
+                ("init_local_repo", cwd_name, "git@github.com:user/demo.git", None),
+                ("push_to_remote", cwd_name),
                 ("open_remote_repo", "demo"),
             ],
         )
@@ -155,6 +157,7 @@ class CliTests(unittest.TestCase):
 
     def test_cli_uses_config_defaults_when_options_are_omitted(self) -> None:
         operations = []
+        cwd_name = Path.cwd().name
         config = {
             "defaults": {"visibility": "public", "template": "flask", "remote": "upstream"},
             "templates": {"custom_dir": "/tmp/custom-templates"},
@@ -211,19 +214,19 @@ class CliTests(unittest.TestCase):
                 (
                     "apply_template",
                     "flask",
-                    "repox",
+                    cwd_name,
                     "/tmp/custom-templates",
                     {"repo_name": "demo-repo", "author": "Alice"},
                 ),
                 ("fetch_gitignore", "Python"),
                 (
                     "init_local_repo",
-                    "repox",
+                    cwd_name,
                     "git@github.com:user/demo-repo.git",
                     "__pycache__/\n",
                     "upstream",
                 ),
-                ("push_to_remote", "repox", "upstream"),
+                ("push_to_remote", cwd_name, "upstream"),
             ],
         )
 
