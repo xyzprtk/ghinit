@@ -52,6 +52,27 @@ class CoreTests(unittest.TestCase):
                 ],
             )
 
+    def test_init_local_repo_respects_custom_remote_name(self) -> None:
+        calls = []
+
+        def fake_run_command(args, cwd=None, check=True):
+            calls.append(args)
+            return mock.Mock(stdout="", stderr="", returncode=0)
+
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            with mock.patch("repox.core.run_command", side_effect=fake_run_command):
+                init_local_repo(
+                    destination=root,
+                    remote_url="git@github.com:example/project.git",
+                    remote_name="upstream",
+                )
+
+        self.assertIn(
+            ["git", "remote", "add", "upstream", "git@github.com:example/project.git"],
+            calls,
+        )
+
     def test_check_prerequisites_reports_missing_auth(self) -> None:
         with mock.patch("repox.core.shutil.which", return_value="/usr/bin/tool"), mock.patch(
             "repox.core.run_command",
@@ -77,6 +98,15 @@ class CoreTests(unittest.TestCase):
         ):
             with self.assertRaisesRegex(RepoxError, "Failed to push to GitHub"):
                 push_to_remote(Path.cwd())
+
+    def test_push_to_remote_uses_custom_remote_name(self) -> None:
+        with mock.patch("repox.core.run_command", return_value=mock.Mock(stdout="", stderr="", returncode=0)) as run_command:
+            push_to_remote(Path.cwd(), remote_name="upstream")
+
+        run_command.assert_called_once_with(
+            ["git", "push", "-u", "upstream", "main"],
+            cwd=Path.cwd(),
+        )
 
     def test_open_remote_repo_wraps_failures(self) -> None:
         with mock.patch(

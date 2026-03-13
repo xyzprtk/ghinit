@@ -128,11 +128,15 @@ def fetch_gitignore(gitignore_name: Optional[str]) -> Optional[str]:
     return result.stdout + "\n" if result.stdout else None
 
 
-def apply_template(template: Optional[str], destination: Path) -> None:
+def apply_template(
+    template: Optional[str],
+    destination: Path,
+    custom_template_dir: Optional[Path] = None,
+) -> None:
     if not template or template == "none":
         return
 
-    templates = discover_templates()
+    templates = discover_templates(custom_template_dir)
     template_dir = templates.get(template)
     if template_dir is None:
         available = ", ".join(templates) or "none"
@@ -154,6 +158,7 @@ def init_local_repo(
     destination: Path,
     remote_url: str,
     gitignore_content: Optional[str] = None,
+    remote_name: str = "origin",
 ) -> None:
     if gitignore_content:
         gitignore_path = destination / ".gitignore"
@@ -167,7 +172,7 @@ def init_local_repo(
         run_command(["git", "add", "."], cwd=destination)
         run_command(["git", "commit", "-m", "Initial commit"], cwd=destination)
         run_command(["git", "branch", "-M", "main"], cwd=destination)
-        run_command(["git", "remote", "add", "origin", remote_url], cwd=destination)
+        run_command(["git", "remote", "add", remote_name, remote_url], cwd=destination)
     except CommandExecutionError as exc:
         if exc.args_list[:3] == ["git", "commit", "-m"]:
             raise RepoxError(
@@ -178,9 +183,9 @@ def init_local_repo(
         ) from exc
 
 
-def push_to_remote(destination: Path) -> None:
+def push_to_remote(destination: Path, remote_name: str = "origin") -> None:
     try:
-        run_command(["git", "push", "-u", "origin", "main"], cwd=destination)
+        run_command(["git", "push", "-u", remote_name, "main"], cwd=destination)
     except CommandExecutionError as exc:
         raise RepoxError(
             "Failed to push to GitHub. Check your SSH setup or GitHub CLI authentication."
