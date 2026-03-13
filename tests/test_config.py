@@ -2,7 +2,7 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
-from repox.config import config_path, custom_template_dir, load_config, render_toml, reset_config, save_config
+from repox.config import custom_template_dir, load_config, render_toml, reset_config, save_config
 
 
 class ConfigTests(unittest.TestCase):

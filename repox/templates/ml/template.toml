@@ -1,0 +1,5 @@
+[meta]
+name = "ML Project"
+description = "Notebook-first machine learning project scaffold."
+language = "Python"
+post_install = "Run: python -m venv .venv && pip install -r requirements.txt"

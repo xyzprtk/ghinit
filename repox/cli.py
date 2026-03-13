@@ -20,13 +20,15 @@ from repox.core import (
     check_prerequisites,
     create_remote_repo,
     fetch_gitignore,
+    get_git_author_name,
     init_local_repo,
     open_remote_repo,
     push_to_remote,
+    render_template_content,
     terminal_supports_color,
 )
 from repox.detect import suggest_gitignore
-from repox.templates import discover_templates
+from repox.templates import discover_template_manifests
 
 
 Step = Tuple[str, Callable[[], None]]
@@ -181,6 +183,17 @@ def render_config(config: dict) -> str:
     )
 
 
+def render_templates_table(templates: Sequence[tuple[str, str]]) -> str:
+    if not templates:
+        return "No templates available."
+
+    width = max(len(name) for name, _ in templates)
+    return "\n".join(
+        f"{name.ljust(width)}  {description}"
+        for name, description in templates
+    )
+
+
 def prompt_for_config_value(message: str, default: str, choices: Optional[Sequence[str]] = None) -> str:
     if questionary is not None:
         if choices is not None:
@@ -249,7 +262,7 @@ def create_command(
     destination = Path.cwd()
     config = load_config()
     configured_custom_dir = custom_template_dir(config)
-    templates = discover_templates(configured_custom_dir)
+    templates = discover_template_manifests(configured_custom_dir)
     template_choices = ["none", *templates.keys()]
     default_visibility = config["defaults"]["visibility"]
     default_template = config["defaults"]["template"]
@@ -283,6 +296,12 @@ def create_command(
 
     remote_url_holder = {"url": ""}
     gitignore_holder = {"content": None}
+    template_variables = None
+    if selected_template != "none":
+        template_variables = {
+            "repo_name": repo_name,
+            "author": get_git_author_name(destination),
+        }
 
     steps: Sequence[Step] = (
         ("Checking prerequisites", check_prerequisites),
@@ -298,6 +317,7 @@ def create_command(
                 selected_template,
                 destination,
                 custom_template_dir=configured_custom_dir,
+                variables=template_variables,
             ),
         ),
         (
@@ -326,6 +346,11 @@ def create_command(
         except RepoxError as exc:
             raise click.ClickException(str(exc)) from exc
 
+    if selected_template != "none":
+        post_install = templates[selected_template].post_install
+        if post_install:
+            click.echo(info(f"Next steps: {render_template_content(post_install, template_variables)}"))
+
     click.echo(ok(f"Repository '{repo_name}' created successfully."))
 
 
@@ -348,7 +373,7 @@ def config_command(show_config: bool, reset_to_defaults: bool) -> None:
         click.echo(render_config(config))
         return
 
-    templates = ["none", *discover_templates(custom_template_dir(config)).keys()]
+    templates = ["none", *discover_template_manifests(custom_template_dir(config)).keys()]
     config["defaults"]["visibility"] = prompt_for_config_value(
         "Default visibility:",
         config["defaults"]["visibility"],
@@ -373,6 +398,18 @@ def config_command(show_config: bool, reset_to_defaults: bool) -> None:
     save_config(config)
     click.echo(ok(f"Configuration saved to {config_path()}"))
     click.echo(render_config(config))
+
+
+@main.command("templates")
+def templates_command() -> None:
+    """List available templates."""
+    config = load_config()
+    manifests = discover_template_manifests(custom_template_dir(config))
+    rows = [
+        (manifest.slug, manifest.description)
+        for manifest in manifests.values()
+    ]
+    click.echo(render_templates_table(rows))
 
 
 if __name__ == "__main__":

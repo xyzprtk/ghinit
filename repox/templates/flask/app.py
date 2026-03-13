@@ -5,7 +5,7 @@ app = Flask(__name__)
 
 @app.get("/")
 def index():
-    return {"status": "ok"}
+    return {"status": "ok", "repo": "{{repo_name}}", "author": "{{author}}"}
 
 
 if __name__ == "__main__":

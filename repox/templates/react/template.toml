@@ -1,0 +1,5 @@
+[meta]
+name = "React App"
+description = "Small React starter app powered by Vite."
+language = "Node"
+post_install = "Run: npm install && npm run start"

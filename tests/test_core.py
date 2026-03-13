@@ -10,17 +10,38 @@ class CoreTests(unittest.TestCase):
     def test_apply_template_copies_files(self) -> None:
         with TemporaryDirectory() as tmp:
             root = Path(tmp)
-            apply_template("flask", root)
+            apply_template(
+                "flask",
+                root,
+                variables={"repo_name": "demo-repo", "author": "Alice"},
+            )
 
             self.assertTrue((root / "app.py").exists())
             self.assertTrue(
                 (root / "requirements.txt").read_text(encoding="utf-8").strip()
+            )
+            self.assertIn(
+                '"repo": "demo-repo"',
+                (root / "app.py").read_text(encoding="utf-8"),
             )
 
     def test_apply_template_rejects_unknown_template(self) -> None:
         with TemporaryDirectory() as tmp:
             with self.assertRaises(RepoxError):
                 apply_template("unknown", Path(tmp))
+
+    def test_apply_template_renders_path_variables(self) -> None:
+        with TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            apply_template(
+                "cli",
+                root,
+                variables={"repo_name": "demo_cli", "author": "Alice"},
+            )
+
+            self.assertTrue((root / "demo_cli" / "cli.py").exists())
+            pyproject = (root / "pyproject.toml").read_text(encoding="utf-8")
+            self.assertIn('name = "demo_cli"', pyproject)
 
     def test_init_local_repo_writes_gitignore_and_runs_git(self) -> None:
         calls = []

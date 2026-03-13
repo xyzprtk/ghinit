@@ -1,0 +1,5 @@
+[meta]
+name = "Click CLI"
+description = "Starter Python CLI app using Click."
+language = "Python"
+post_install = "Run: pip install -e . && {{repo_name}} --help"

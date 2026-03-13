@@ -18,10 +18,10 @@ class CliTests(unittest.TestCase):
         with mock.patch("repox.cli.load_config", return_value=config), mock.patch(
             "repox.cli.custom_template_dir", return_value=None
         ), mock.patch("repox.cli.prompt_for_name", return_value="demo-repo"), mock.patch(
-            "repox.cli.prompt_for_visibility", return_value="private"
-        ), mock.patch(
             "repox.cli.prompt_for_template", return_value="flask"
         ), mock.patch("repox.cli.suggest_gitignore", return_value="Python"), mock.patch(
+            "repox.cli.get_git_author_name", return_value="Alice"
+        ), mock.patch(
             "repox.cli.confirm_execution", return_value=True
         ), mock.patch(
             "repox.cli.check_prerequisites",
@@ -34,8 +34,8 @@ class CliTests(unittest.TestCase):
             or "git@github.com:user/demo-repo.git",
         ), mock.patch(
             "repox.cli.apply_template",
-            side_effect=lambda template, destination, custom_template_dir=None: operations.append(
-                ("apply_template", template, destination.name)
+            side_effect=lambda template, destination, custom_template_dir=None, variables=None: operations.append(
+                ("apply_template", template, destination.name, variables)
             ),
         ), mock.patch(
             "repox.cli.fetch_gitignore",
@@ -60,7 +60,7 @@ class CliTests(unittest.TestCase):
             [
                 "check_prerequisites",
                 ("create_remote_repo", "demo-repo", "private"),
-                ("apply_template", "flask", "repox"),
+                ("apply_template", "flask", "repox", {"repo_name": "demo-repo", "author": "Alice"}),
                 ("fetch_gitignore", "Python"),
                 (
                     "init_local_repo",
@@ -92,8 +92,8 @@ class CliTests(unittest.TestCase):
             or "git@github.com:user/demo.git",
         ), mock.patch(
             "repox.cli.apply_template",
-            side_effect=lambda template, destination, custom_template_dir=None: operations.append(
-                ("apply_template", template, destination.name)
+            side_effect=lambda template, destination, custom_template_dir=None, variables=None: operations.append(
+                ("apply_template", template, destination.name, variables)
             ),
         ), mock.patch(
             "repox.cli.fetch_gitignore",
@@ -121,7 +121,7 @@ class CliTests(unittest.TestCase):
             [
                 "check_prerequisites",
                 ("create_remote_repo", "demo", "public"),
-                ("apply_template", "none", "repox"),
+                ("apply_template", "none", "repox", None),
                 ("fetch_gitignore", None),
                 ("init_local_repo", "repox", "git@github.com:user/demo.git", None),
                 ("push_to_remote", "repox"),
@@ -138,9 +138,9 @@ class CliTests(unittest.TestCase):
         with mock.patch("repox.cli.load_config", return_value=config), mock.patch(
             "repox.cli.custom_template_dir", return_value=None
         ), mock.patch("repox.cli.prompt_for_name", return_value="demo-repo"), mock.patch(
-            "repox.cli.prompt_for_visibility", return_value="private"
-        ), mock.patch(
             "repox.cli.prompt_for_template", return_value="none"
+        ), mock.patch(
+            "repox.cli.get_git_author_name", return_value="Alice"
         ), mock.patch(
             "repox.cli.suggest_gitignore", return_value=None
         ), mock.patch(
@@ -163,10 +163,10 @@ class CliTests(unittest.TestCase):
         with mock.patch("repox.cli.load_config", return_value=config), mock.patch(
             "repox.cli.custom_template_dir", return_value=Path("/tmp/custom-templates")
         ), mock.patch("repox.cli.prompt_for_name", return_value="demo-repo"), mock.patch(
-            "repox.cli.prompt_for_visibility"
-        ) as prompt_for_visibility, mock.patch(
             "repox.cli.prompt_for_template"
         ) as prompt_for_template, mock.patch(
+            "repox.cli.get_git_author_name", return_value="Alice"
+        ), mock.patch(
             "repox.cli.confirm_execution", return_value=True
         ), mock.patch(
             "repox.cli.suggest_gitignore", return_value="Python"
@@ -181,8 +181,8 @@ class CliTests(unittest.TestCase):
             or "git@github.com:user/demo-repo.git",
         ), mock.patch(
             "repox.cli.apply_template",
-            side_effect=lambda template, destination, custom_template_dir=None: operations.append(
-                ("apply_template", template, destination.name, str(custom_template_dir))
+            side_effect=lambda template, destination, custom_template_dir=None, variables=None: operations.append(
+                ("apply_template", template, destination.name, str(custom_template_dir), variables)
             ),
         ), mock.patch(
             "repox.cli.fetch_gitignore",
@@ -202,14 +202,19 @@ class CliTests(unittest.TestCase):
             result = runner.invoke(main, ["demo-repo", "--yes"])
 
         self.assertEqual(result.exit_code, 0)
-        self.assertFalse(prompt_for_visibility.called)
         self.assertFalse(prompt_for_template.called)
         self.assertEqual(
             operations,
             [
                 "check_prerequisites",
                 ("create_remote_repo", "demo-repo", "public"),
-                ("apply_template", "flask", "repox", "/tmp/custom-templates"),
+                (
+                    "apply_template",
+                    "flask",
+                    "repox",
+                    "/tmp/custom-templates",
+                    {"repo_name": "demo-repo", "author": "Alice"},
+                ),
                 ("fetch_gitignore", "Python"),
                 (
                     "init_local_repo",
@@ -268,6 +273,27 @@ class CliTests(unittest.TestCase):
         self.assertEqual(saved["config"]["defaults"]["visibility"], "public")
         self.assertEqual(saved["config"]["defaults"]["remote"], "upstream")
         self.assertEqual(saved["config"]["templates"]["custom_dir"], "~/templates")
+
+    def test_templates_command_lists_manifest_descriptions(self) -> None:
+        manifests = {
+            "flask": mock.Mock(slug="flask", description="Minimal Flask API"),
+            "ml": mock.Mock(slug="ml", description="Notebook scaffold"),
+        }
+        config = {
+            "defaults": {"visibility": "private", "template": "none", "remote": "origin"},
+            "templates": {"custom_dir": ""},
+        }
+        with mock.patch("repox.cli.load_config", return_value=config), mock.patch(
+            "repox.cli.custom_template_dir", return_value=None
+        ), mock.patch(
+            "repox.cli.discover_template_manifests", return_value=manifests
+        ):
+            runner = CliRunner()
+            result = runner.invoke(main, ["templates"])
+
+        self.assertEqual(result.exit_code, 0)
+        self.assertIn("flask", result.output)
+        self.assertIn("Notebook scaffold", result.output)
 
 
 if __name__ == "__main__":

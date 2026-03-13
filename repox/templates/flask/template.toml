@@ -1,0 +1,5 @@
+[meta]
+name = "Flask API"
+description = "Minimal Flask REST API with a health check route."
+language = "Python"
+post_install = "Run: pip install -r requirements.txt && python app.py"

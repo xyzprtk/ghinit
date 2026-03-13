@@ -8,9 +8,9 @@ import shutil
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Optional
+from typing import Dict, Iterable, Optional
 
-from repox.templates import discover_templates
+from repox.templates import discover_template_manifests
 
 
 class RepoxError(RuntimeError):
@@ -92,6 +92,21 @@ def get_authenticated_username() -> str:
     return str(username)
 
 
+def get_git_author_name(destination: Optional[Path] = None) -> str:
+    try:
+        result = run_command(["git", "config", "user.name"], cwd=destination)
+    except CommandExecutionError as exc:
+        raise RepoxError(
+            "Unable to determine the git author name. Configure git user.name before using template variables."
+        ) from exc
+    author = result.stdout.strip()
+    if not author:
+        raise RepoxError(
+            "Unable to determine the git author name. Configure git user.name before using template variables."
+        )
+    return author
+
+
 def create_remote_repo(name: str, visibility: str) -> str:
     if visibility not in {"public", "private"}:
         raise RepoxError(f"Unsupported visibility '{visibility}'.")
@@ -128,30 +143,60 @@ def fetch_gitignore(gitignore_name: Optional[str]) -> Optional[str]:
     return result.stdout + "\n" if result.stdout else None
 
 
+def render_template_content(content: str, variables: Dict[str, str]) -> str:
+    rendered = content
+    for key, value in variables.items():
+        rendered = rendered.replace(f"{{{{{key}}}}}", value)
+    return rendered
+
+
 def apply_template(
     template: Optional[str],
     destination: Path,
     custom_template_dir: Optional[Path] = None,
+    variables: Optional[Dict[str, str]] = None,
 ) -> None:
     if not template or template == "none":
         return
 
-    templates = discover_templates(custom_template_dir)
-    template_dir = templates.get(template)
-    if template_dir is None:
+    templates = discover_template_manifests(custom_template_dir)
+    manifest = templates.get(template)
+    if manifest is None:
         available = ", ".join(templates) or "none"
         raise RepoxError(
             f"Unknown template '{template}'. Available templates: {available}."
         )
 
-    for source in template_dir.rglob("*"):
-        relative = source.relative_to(template_dir)
-        target = destination / relative
+    for source in manifest.path.rglob("*"):
+        relative = source.relative_to(manifest.path)
+        if relative.name == "template.toml":
+            continue
+        rendered_relative = relative
+        if variables:
+            rendered_parts = [
+                render_template_content(part, variables)
+                for part in relative.parts
+            ]
+            rendered_relative = Path(*rendered_parts)
+        target = destination / rendered_relative
         if source.is_dir():
             target.mkdir(parents=True, exist_ok=True)
             continue
         target.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(source, target)
+        if variables and _is_text_file(source):
+            content = source.read_text(encoding="utf-8")
+            target.write_text(render_template_content(content, variables), encoding="utf-8")
+            shutil.copystat(source, target)
+        else:
+            shutil.copy2(source, target)
+
+
+def _is_text_file(path: Path) -> bool:
+    try:
+        path.read_text(encoding="utf-8")
+        return True
+    except UnicodeDecodeError:
+        return False
 
 
 def init_local_repo(
